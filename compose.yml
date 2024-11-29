@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      TZ: Asia/Tokyo
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # environment:
+      # DB_CONNECTION: pgsql
+      # DB_HOST: db
+      # DB_PORT: 5432
+      # DB_DATABASE: postgres
+      # DB_USERNAME: postgres
+      # DB_PASSWORD: postgres
+      # APP_TIMEZONE: Asia/Tokyo
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+    ports:
+      - "80:80"
