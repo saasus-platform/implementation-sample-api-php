@@ -29,4 +29,7 @@ Route::middleware(\AntiPatternInc\Saasus\Laravel\Middleware\Auth::class)->group(
     Route::delete('/user_delete', [IndexController::class, 'userDelete']);
     Route::get('/delete_user_log', [IndexController::class, 'deleteUserLog']);
     Route::get('/pricing_plan', [IndexController::class, 'pricingPlan']);
+    Route::get('/tenant_attributes_list', [IndexController::class, 'tenantAttributesList']);
+    Route::post('/self_sign_up', [IndexController::class, 'selfSignUp']);
+    Route::post('/logout', [IndexController::class, 'logout']);
 });

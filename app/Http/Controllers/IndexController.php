@@ -74,16 +74,6 @@ class IndexController extends Controller
             $users[$key]['attributes'] = $value->getAttributes();
 
             Log::info(json_encode($value->getAttributes()));
-
-            // foreach ($value->getAttributes() as $attribute) {
-            //     $attributeArr = iterator_to_array($attribute);
-            //     $attributeName = $attribute->getAttributeName();
-            //     $users[$key][$attributeName] = [
-            //         'display_name' => $attribute->getDisplayName(),
-            //         'attribute_type' => $attribute->getAttributeType(),
-            //         'value' => $value->getAttributes()[$attributeName] ?? null,
-            //     ];
-            // }
         }
 
         Log::info(json_encode($users));
@@ -344,6 +334,121 @@ class IndexController extends Controller
             Log::error($e->getMessage());
             return response()->json(['detail' => 'Error occurred while retrieving pricing plan'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    public function tenantAttributesList(Request $request)
+    {
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $authClient = $this->client->getAuthClient();
+            $res = $authClient->getTenantAttributes();
+            $attributes = array_map(function ($attribute) {
+                return [
+                    'attribute_name' => $attribute->getAttributeName(),
+                    'attribute_type' => $attribute->getAttributeType(),
+                    'display_name'   => $attribute->getDisplayName(),
+                ];
+            }, $res->getTenantAttributes());
+    
+            $response = [
+                'tenant_attributes' => $attributes
+            ];
+
+            return response()->json($response);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function selfSignUp(Request $request)
+    {
+        $tenantName = $request->input('tenantName');
+        $tenantAttributeValues = $request->input('tenantAttributeValues', []);
+        $userAttributeValues = $request->input('userAttributeValues', []);
+        if (!$tenantName) {
+            return response()->json(['message' => 'Missing required fields'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $authClient = $this->client->getAuthClient();
+
+            // テナント属性情報の取得
+            $tenantAttributesResponse = $authClient->getTenantAttributes();
+            $tenantAttributes = $tenantAttributesResponse->getTenantAttributes();
+            foreach ($tenantAttributes as $attribute) {
+                $attributeName = $attribute->getAttributeName();
+                $attributeType = $attribute->getAttributeType();
+
+                // テナント属性情報で number 型が定義されている場合は置換する
+                if (isset($tenantAttributeValues[$attributeName]) && $attributeType === 'number') {
+                    $tenantAttributeValues[$attributeName] = (int) $tenantAttributeValues[$attributeName];
+                }
+            }
+
+            $email = $userInfo['email'];
+
+            // テナントを作成
+            $requestBody = new \stdClass();
+            $requestBody->name = $tenantName;
+            $requestBody->attributes = $tenantAttributeValues;
+            $requestBody->back_office_staff_email = $email;
+            $createdTenant = $authClient->createTenant($requestBody);
+
+            // 作成したテナントのIDを取得
+            $tenantId = $createdTenant->getId();
+
+            // ユーザー属性情報を取得
+            $userAttributesResponse = $authClient->getUserAttributes();
+            $userAttributes = $userAttributesResponse->getUserAttributes();
+            foreach ($userAttributes as $attribute) {
+                $attributeName = $attribute->getAttributeName();
+                $attributeType = $attribute->getAttributeType();
+
+                // ユーザー属性情報で number 型が定義されている場合は置換する
+                if (isset($userAttributeValues[$attributeName]) && $attributeType === 'number') {
+                    $userAttributeValues[$attributeName] = (int) $userAttributeValues[$attributeName];
+                }
+            }
+
+            // テナントユーザー登録用のパラメータを作成
+            $createTenantUserParam = new CreateTenantUserParam();
+            $createTenantUserParam
+                ->setEmail($email)
+                ->setAttributes($userAttributeValues);
+
+            // SaaSユーザーをテナントユーザーに追加
+            $tenantUser = $authClient->createTenantUser($tenantId, $createTenantUserParam);
+
+            // ロール設定用のパラメータを作成
+            $createTenantUserRolesParam = new CreateTenantUserRolesParam();
+            $createTenantUserRolesParam
+                ->setRoleNames(['admin']);
+
+            // 作成したテナントユーザーにロールを設定
+            $authClient->createTenantUserRoles($tenantId, $tenantUser->getId(), 3, $createTenantUserRolesParam);
+
+            return response()->json(['message' => 'User registered successfully']);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            dump($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function logout(Request $request) {
+        return response()->json([
+            'message' => 'Logged out successfully'
+        ])->withCookie(cookie()->forget('SaaSusRefreshToken'));
     }
 
     private function belongingTenant(array $tenants, string $tenantId): bool
