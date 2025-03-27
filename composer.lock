@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d3a06b90e0496fd87e599d7cc5f58a3b",
+    "content-hash": "e86dd3f3cd00ee93cc4c66c28208d7ea",
     "packages": [
         {
             "name": "brick/math",
@@ -4173,16 +4173,16 @@
         },
         {
             "name": "saasus-platform/saasus-sdk-php",
-            "version": "v1.6.0",
+            "version": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/saasus-platform/saasus-sdk-php.git",
-                "reference": "dc81afc451fd488aadacda42b80eed56c419d2b3"
+                "reference": "ce6d31e11e260f5738b3355c273678f0293e4764"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/saasus-platform/saasus-sdk-php/zipball/dc81afc451fd488aadacda42b80eed56c419d2b3",
-                "reference": "dc81afc451fd488aadacda42b80eed56c419d2b3",
+                "url": "https://api.github.com/repos/saasus-platform/saasus-sdk-php/zipball/ce6d31e11e260f5738b3355c273678f0293e4764",
+                "reference": "ce6d31e11e260f5738b3355c273678f0293e4764",
                 "shasum": ""
             },
             "require": {
@@ -4201,6 +4201,7 @@
                 "psr/cache": "^1.0",
                 "psr/simple-cache": "^1.0"
             },
+            "default-branch": true,
             "type": "library",
             "extra": {
                 "symfony": {
@@ -4231,10 +4232,10 @@
             ],
             "description": "SaaSus SDK for PHP",
             "support": {
-                "source": "https://github.com/saasus-platform/saasus-sdk-php/tree/v1.6.0",
+                "source": "https://github.com/saasus-platform/saasus-sdk-php/tree/main",
                 "issues": "https://github.com/saasus-platform/saasus-sdk-php/issues"
             },
-            "time": "2023-12-20T12:03:44+00:00"
+            "time": "2024-10-23T04:27:53+00:00"
         },
         {
             "name": "symfony/console",
@@ -9385,7 +9386,9 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {},
+    "stability-flags": {
+        "saasus-platform/saasus-sdk-php": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
