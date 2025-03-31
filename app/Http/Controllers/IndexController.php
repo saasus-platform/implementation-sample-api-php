@@ -459,30 +459,38 @@ class IndexController extends Controller
     }
 
     public function invitations(Request $request) {
+        // クエリパラメータからテナントIDを取得
         $tenantId = $request->query('tenant_id');
         if (!$tenantId) {
+            // テナントIDが指定されていない場合はエラー
             return response()->json(['message' => 'Missing tenant_id'], Response::HTTP_BAD_REQUEST);
         }
 
+        // リクエストからユーザー情報を取得
         $userInfo = $request->userinfo;
         if (!$userInfo) {
+            // ユーザー情報が存在しない場合はエラー
             return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
         }
 
+        // ユーザーがテナントに所属していない場合はエラー
         if (!$userInfo['tenants']) {
             return response()->json(['detail' => 'No tenants found for the user'], Response::HTTP_BAD_REQUEST);
         }
 
+        // 指定されたテナントIDがユーザーの所属するテナントか確認
         if (!$this->belongingTenant($userInfo['tenants'], $tenantId)) {
             return response()->json(['detail' => 'Tenant that does not belong'], Response::HTTP_BAD_REQUEST);
         }
 
         try {
+            // 認証クライアントを初期化して招待一覧を取得
             $authClient = $this->client->getAuthClient();
             $response = $authClient->getTenantInvitations($tenantId);
 
             $invitations = [];
             foreach ($response->getInvitations() as $key => $value) {
+                // 招待情報を配列に整形
                 Log::info(json_encode($value->getId()));
                 $invitations[$key]['id'] = $value->getId();
                 $invitations[$key]['email'] = $value->getEmail();
@@ -491,6 +499,7 @@ class IndexController extends Controller
                 $invitations[$key]['expired_at'] = $value->getExpiredAt();
             }
             Log::info($invitations);
+            // 整形済みの招待情報を返却
             return response()->json($invitations);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
