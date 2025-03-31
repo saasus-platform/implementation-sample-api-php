@@ -13,7 +13,7 @@ class CustomCors
 
         $response->headers->set('Access-Control-Allow-Origin', 'http://localhost:3000');
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        $response->headers->set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With, X-Access-Token');
+        $response->headers->set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With, X-Access-Token, x-saasus-referer');
         $response->headers->set('Access-Control-Allow-Credentials', 'true');
 
         return $response;
