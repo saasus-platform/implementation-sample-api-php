@@ -32,4 +32,6 @@ Route::middleware(\AntiPatternInc\Saasus\Laravel\Middleware\Auth::class)->group(
     Route::get('/tenant_attributes_list', [IndexController::class, 'tenantAttributesList']);
     Route::post('/self_sign_up', [IndexController::class, 'selfSignUp']);
     Route::post('/logout', [IndexController::class, 'logout']);
+    Route::get('/invitations', [IndexController::class, 'invitations']);
+    Route::post('/user_invitation', [IndexController::class, 'userInvitation']);
 });

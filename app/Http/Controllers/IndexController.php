@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateSaasUserParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantUserParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantUserRolesParam;
+use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantInvitationParam;
+use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantInvitationParamEnvsItem;
 use App\Models\DeleteUserLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -454,5 +456,109 @@ class IndexController extends Controller
     private function belongingTenant(array $tenants, string $tenantId): bool
     {
         return collect($tenants)->contains('id', $tenantId);
+    }
+
+    public function invitations(Request $request) {
+        // クエリパラメータからテナントIDを取得
+        $tenantId = $request->query('tenant_id');
+        if (!$tenantId) {
+            // テナントIDが指定されていない場合はエラー
+            return response()->json(['message' => 'Missing tenant_id'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // リクエストからユーザー情報を取得
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            // ユーザー情報が存在しない場合はエラー
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // ユーザーがテナントに所属していない場合はエラー
+        if (!$userInfo['tenants']) {
+            return response()->json(['detail' => 'No tenants found for the user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // 指定されたテナントIDがユーザーの所属するテナントか確認
+        if (!$this->belongingTenant($userInfo['tenants'], $tenantId)) {
+            return response()->json(['detail' => 'Tenant that does not belong'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            // 認証クライアントを初期化して招待一覧を取得
+            $authClient = $this->client->getAuthClient();
+            $response = $authClient->getTenantInvitations($tenantId);
+
+            $invitations = [];
+            foreach ($response->getInvitations() as $key => $value) {
+                // 招待情報を配列に整形
+                Log::info(json_encode($value->getId()));
+                $invitations[$key]['id'] = $value->getId();
+                $invitations[$key]['email'] = $value->getEmail();
+                $invitations[$key]['invitation_url'] = $value->getInvitationUrl();
+                $invitations[$key]['envs'] = $value->getEnvs();
+                $invitations[$key]['expired_at'] = $value->getExpiredAt();
+            }
+            Log::info($invitations);
+            // 整形済みの招待情報を返却
+            return response()->json($invitations);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function userInvitation(Request $request) {
+        $email = $request->input('email');
+        $tenantId = $request->input('tenantId');
+        if (!$email || !$tenantId) {
+            return response()->json(['message' => 'Missing required fields'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$userInfo['tenants']) {
+            return response()->json(['detail' => 'No tenants found for the user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$this->belongingTenant($userInfo['tenants'], $tenantId)) {
+            return response()->json(['detail' => 'Tenant that does not belong'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            // 招待を作成するユーザーのアクセストークンを取得
+            $accessToken = $request->header('X-Access-Token');
+
+            // アクセストークンがリクエストヘッダーに含まれていなかったらエラー
+            if (empty($accessToken)) {
+                return response()->json(['error' => 'Access token is missing'], 401);
+            }
+
+            // テナント招待のパラメータを作成
+            $createTenantInvitationParamEnvsItem = new CreateTenantInvitationParamEnvsItem();
+            $createTenantInvitationParamEnvsItem
+                ->setId(3) // 本番環境のid:3を指定
+                ->setRoleNames(['admin']);
+
+            $createTenantInvitationParam = new CreateTenantInvitationParam();
+            $createTenantInvitationParam
+                ->setEmail($email)
+                ->setAccessToken($accessToken)
+                ->setEnvs([$createTenantInvitationParamEnvsItem]);
+
+            // テナントへの招待を作成
+            $authClient = $this->client->getAuthClient();
+            $authClient->createTenantInvitation(
+                $tenantId,
+                $createTenantInvitationParam
+            );
+
+            return response()->json(['message' => 'Create tenant user invitation successfully']);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }
