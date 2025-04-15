@@ -497,6 +497,7 @@ class IndexController extends Controller
                 $invitations[$key]['invitation_url'] = $value->getInvitationUrl();
                 $invitations[$key]['envs'] = $value->getEnvs();
                 $invitations[$key]['expired_at'] = $value->getExpiredAt();
+                $invitations[$key]['status'] = $value->getStatus();
             }
             Log::info($invitations);
             // 整形済みの招待情報を返却
