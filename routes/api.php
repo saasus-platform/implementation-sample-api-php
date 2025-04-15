@@ -34,4 +34,9 @@ Route::middleware(\AntiPatternInc\Saasus\Laravel\Middleware\Auth::class)->group(
     Route::post('/logout', [IndexController::class, 'logout']);
     Route::get('/invitations', [IndexController::class, 'invitations']);
     Route::post('/user_invitation', [IndexController::class, 'userInvitation']);
+    Route::get('/mfa_status', [IndexController::class, 'mfaStatus']);
+    Route::get('/mfa_setup', [IndexController::class, 'mfaSetup']);
+    Route::post('/mfa_verify', [IndexController::class, 'mfaVerify']);
+    Route::post('/mfa_enable', [IndexController::class, 'mfaEnable']);
+    Route::post('/mfa_disable', [IndexController::class, 'mfaDisable']);
 });

@@ -7,6 +7,9 @@ use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantUserParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantUserRolesParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantInvitationParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantInvitationParamEnvsItem;
+use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateSecretCodeParam;
+use AntiPatternInc\Saasus\Sdk\Auth\Model\UpdateSoftwareTokenParam;
+use AntiPatternInc\Saasus\Sdk\Auth\Model\MfaPreference;
 use App\Models\DeleteUserLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -556,6 +559,129 @@ class IndexController extends Controller
             );
 
             return response()->json(['message' => 'Create tenant user invitation successfully']);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // MFAステータス確認エンドポイント
+    public function mfaStatus(Request $request)
+    {
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $authClient = $this->client->getAuthClient();
+            $mfaPref = $authClient->getUserMfaPreference($userInfo['id']);
+            return response()->json(['enabled' => $mfaPref->getEnabled()]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // MFAシークレット作成エンドポイント
+    public function mfaSetup(Request $request)
+    {
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $accessToken = $request->header('X-Access-Token');
+        if (!$accessToken) {
+            return response()->json(['detail' => 'Access token is missing'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            $authClient = $this->client->getAuthClient();
+            $param = new CreateSecretCodeParam();
+            $param->setAccessToken($accessToken);
+            $secretCode = $authClient->createSecretCode($userInfo['id'], $param);
+
+            $qrCodeUrl = sprintf(
+                'otpauth://totp/SaaSusPlatform:%s?secret=%s&issuer=SaaSusPlatform',
+                $userInfo['email'],
+                $secretCode->getSecretCode()
+            );
+
+            return response()->json(['qrCodeUrl' => $qrCodeUrl]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // MFA認証コード検証エンドポイント
+    public function mfaVerify(Request $request)
+    {
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $accessToken = $request->header('X-Access-Token');
+        $verificationCode = $request->input('verification_code');
+
+        if (!$accessToken || !$verificationCode) {
+            return response()->json(['detail' => 'Missing verification_code or accessToken'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $authClient = $this->client->getAuthClient();
+            $param = new UpdateSoftwareTokenParam();
+            $param->setAccessToken($accessToken);
+            $param->setVerificationCode($verificationCode);
+
+            $authClient->updateSoftwareToken($userInfo['id'], $param);
+            return response()->json(['message' => 'MFA verification successful']);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // MFA有効化エンドポイント
+    public function mfaEnable(Request $request)
+    {
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $authClient = $this->client->getAuthClient();
+            $requestBody = new \stdClass();
+            $requestBody->enabled = true;
+            $requestBody->method = 'softwareToken';
+            $authClient->updateUserMfaPreference($userInfo['id'], $requestBody);
+
+            return response()->json(['message' => 'MFA has been enabled']);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // MFA無効化エンドポイント
+    public function mfaDisable(Request $request)
+    {
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $authClient = $this->client->getAuthClient();
+            $requestBody = new \stdClass();
+            $requestBody->enabled = false;
+            $requestBody->method = 'softwareToken';
+            $authClient->updateUserMfaPreference($userInfo['id'], $requestBody);
+
+            return response()->json(['message' => 'MFA has been disabled']);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
             return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
