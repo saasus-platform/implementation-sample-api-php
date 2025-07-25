@@ -10,6 +10,7 @@ use AntiPatternInc\Saasus\Api\Client  as SaasusClient;
 use AntiPatternInc\Saasus\Sdk\Auth\Client  as AuthClient;
 use AntiPatternInc\Saasus\Sdk\Pricing\Client  as PricingClient;
 use AntiPatternInc\Saasus\Sdk\Pricing\Model\UpdateMeteringUnitTimestampCountParam;
+use AntiPatternInc\Saasus\Sdk\Pricing\Model\UpdateMeteringUnitTimestampCountNowParam;
 use AntiPatternInc\Saasus\Sdk\Pricing\Model\PricingPlan;
 
 class BillingController extends Controller
@@ -91,7 +92,6 @@ class BillingController extends Controller
           }
         }
       }
-
 
       /* メータ課金計算 */
       [$meteringUnitBillings, $currencyTotals] =
@@ -224,7 +224,7 @@ class BillingController extends Controller
 
           // 結果に push
           $results[] = [
-            // 人間が読めるラベル（例: 2025年04月01日 00:00:00 ～ 2025年04月30日 23:59:59）
+            // ラベル（例: 2025年04月01日 00:00:00 ～ 2025年04月30日 23:59:59）
             'label' => sprintf(
               '%04d年%02d月%02d日 %02d:%02d:%02d ～ %04d年%02d月%02d日 %02d:%02d:%02d',
               ...array_map('intval', [
@@ -276,7 +276,7 @@ class BillingController extends Controller
   /* ================================================================
    * /metering/{tenantId}/{unit}/{ts}   ─ メータ更新
    *=============================================================== */
-  public function updateMetering(Request $req, string $tenantId, string $unit, int $ts)
+  public function updateCountOfSpecifiedTimestamp(Request $req, string $tenantId, string $unit, int $ts)
   {
     // 権限（admin / sadmin）チェック
     if (!$this->hasBillingAccess($req->userinfo ?? [], $tenantId)) {
@@ -299,6 +299,41 @@ class BillingController extends Controller
         $tenantId,
         $unit,
         $ts,
+        $param
+      );
+
+      return response()->json(['ok' => true]);
+    } catch (\Throwable $e) {
+      Log::error($e->getMessage());
+      return response()->json(['detail' => 'meter update failed'], Response::HTTP_INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /* ================================================================
+   * /metering/{tenantId}/{unit}/   ─ メータ更新
+   *=============================================================== */
+  public function updateCountOfNow(Request $req, string $tenantId, string $unit)
+  {
+    // 権限（admin / sadmin）チェック
+    if (!$this->hasBillingAccess($req->userinfo ?? [], $tenantId)) {
+      return response()->json(['detail' => 'Insufficient permissions'], Response::HTTP_FORBIDDEN);
+    }
+
+    try {
+      $method = $req->input('method');          // add|sub|direct
+      $count  = (int)$req->input('count', 0);
+
+      if (!in_array($method, ['add', 'sub', 'direct'], true) || $count < 0) {
+        return response()->json(['detail' => 'invalid method / count'], Response::HTTP_BAD_REQUEST);
+      }
+
+      $param = (new UpdateMeteringUnitTimestampCountNowParam())
+        ->setMethod($method)
+        ->setCount($count);
+
+      $this->pricing->updateMeteringUnitTimestampCountNow(
+        $tenantId,
+        $unit,
         $param
       );
 
@@ -399,9 +434,9 @@ class BillingController extends Controller
     foreach ($menus as $menu) {
       $menuName = $menu['display_name'] ?? '---';
 
-      foreach ($menu['units'] ?? [] as $unit) {;
+      foreach ($menu['units'] ?? [] as $unit) {
         $unitType = $unit['type'] ?? 'usage';
-        $unitName = $unit['metering_unit_name'] ??  '';
+        $unitName = $unit['metering_unit_name'] ?? '';
         $dispName = $unit['display_name'] ?? '';
         $currency = $unit['currency'] ?? 'JPY';
         $aggUsage = $unit['aggregate_usage'] ?? 'sum';
@@ -450,6 +485,7 @@ class BillingController extends Controller
         // 結果を配列に追加
         $meteringUnitBillings[] = [
           'metering_unit_name'        => $unitName,
+          'metering_unit_type'        => $unitType,
           'function_menu_name'        => $menuName,
           'period_count'              => $count,
           'currency'                  => $currency,
@@ -511,7 +547,7 @@ class BillingController extends Controller
 
 
   /**
-   * tiered: その段階の flat + count*unit
+   * tiered: その段階の flat + count * unit
    * 
    * $unit['tiers'] は以下のような配列を想定:
    * [

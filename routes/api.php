@@ -42,9 +42,11 @@ Route::middleware(\AntiPatternInc\Saasus\Laravel\Middleware\Auth::class)->group(
     Route::post('/mfa_disable', [IndexController::class, 'mfaDisable']);
 
     /* --- Billing & Metering --- */
-    Route::get('/billing/dashboard',      [BillingController::class, 'dashboard']);
-    Route::get('/tenant/plan_periods',    [BillingController::class, 'planPeriods']);
-    // TS は 10 桁 UNIX 秒、unit は metering_unit_name
-    Route::post('/metering/{tenantId}/{unit}/{ts}', [BillingController::class, 'updateMetering']);
-
+    Route::prefix('/billing')->group(function () {
+        Route::get('/dashboard', [BillingController::class, 'dashboard']);
+        Route::get('/plan_periods', [BillingController::class, 'planPeriods']);
+        // TS は 10 桁 UNIX 秒、unit は metering_unit_name
+        Route::post('/metering/{tenantId}/{unit}/{ts}', [BillingController::class, 'updateCountOfSpecifiedTimestamp']);
+        Route::post('/metering/{tenantId}/{unit}', [BillingController::class, 'updateCountOfNow']);
+    });
 });
