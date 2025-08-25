@@ -405,7 +405,8 @@ class IndexController extends Controller
             // テナントを作成
             $requestBody = new \stdClass();
             $requestBody->name = $tenantName;
-            $requestBody->attributes = $tenantAttributeValues;
+            // 空配列の場合は空オブジェクトに変換
+            $requestBody->attributes = empty($tenantAttributeValues) ? new \stdClass() : $tenantAttributeValues;
             $requestBody->back_office_staff_email = $email;
             $createdTenant = $authClient->createTenant($requestBody);
 
