@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IndexController;
+use App\Http\Controllers\BillingController;
 use AntiPatternInc\Saasus\Laravel\Controllers\CallbackApiController;
 /*
 |--------------------------------------------------------------------------
@@ -39,4 +40,13 @@ Route::middleware(\AntiPatternInc\Saasus\Laravel\Middleware\Auth::class)->group(
     Route::post('/mfa_verify', [IndexController::class, 'mfaVerify']);
     Route::post('/mfa_enable', [IndexController::class, 'mfaEnable']);
     Route::post('/mfa_disable', [IndexController::class, 'mfaDisable']);
+
+    /* --- Billing & Metering --- */
+    Route::prefix('/billing')->group(function () {
+        Route::get('/dashboard', [BillingController::class, 'dashboard']);
+        Route::get('/plan_periods', [BillingController::class, 'planPeriods']);
+        // TS は 10 桁 UNIX 秒、unit は metering_unit_name
+        Route::post('/metering/{tenantId}/{unit}/{ts}', [BillingController::class, 'updateCountOfSpecifiedTimestamp']);
+        Route::post('/metering/{tenantId}/{unit}', [BillingController::class, 'updateCountOfNow']);
+    });
 });
