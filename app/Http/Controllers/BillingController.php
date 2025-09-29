@@ -600,4 +600,134 @@ class BillingController extends Controller
     }
     return $total;
   }
+
+  /* ================================================================
+   * /pricing_plans   ─ 料金プラン一覧取得
+   *=============================================================== */
+  public function getPricingPlans(Request $req)
+  {
+    try {
+      $plans = $this->pricing->getPricingPlans();
+      return response()->json($plans->getPricingPlans());
+    } catch (\Throwable $e) {
+      Log::error($e->getMessage());
+      return response()->json(['detail' => 'Internal server error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /* ================================================================
+   * /tax_rates   ─ 税率一覧取得
+   *=============================================================== */
+  public function getTaxRates(Request $req)
+  {
+    try {
+      $taxRates = $this->pricing->getTaxRates();
+      return response()->json($taxRates->getTaxRates());
+    } catch (\Throwable $e) {
+      Log::error($e->getMessage());
+      return response()->json(['detail' => 'Internal server error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /* ================================================================
+   * GET /tenants/{tenant_id}/plan   ─ テナントプラン情報取得
+   *=============================================================== */
+  public function getTenantPlanInfo(Request $req, string $tenantId)
+  {
+    try {
+      if (!$tenantId) {
+        return response()->json(['error' => 'tenant_id is required'], Response::HTTP_BAD_REQUEST);
+      }
+
+      $userInfo = $req->userinfo ?? [];
+      if (!$this->hasBillingAccess($userInfo, $tenantId)) {
+        return response()->json(['error' => 'Insufficient permissions'], Response::HTTP_FORBIDDEN);
+      }
+
+      $tenant = $this->auth->getTenant($tenantId);
+      if (!$tenant) {
+        return response()->json(['error' => 'Tenant not found'], Response::HTTP_NOT_FOUND);
+      }
+
+      // 現在のプランの税率情報を取得（プラン履歴の最新エントリから）
+      $currentTaxRateId = null;
+      $planHistories = $tenant->getPlanHistories();
+      if (!empty($planHistories)) {
+        $latestPlanHistory = end($planHistories);
+        if ($latestPlanHistory->getTaxRateId()) {
+          $currentTaxRateId = $latestPlanHistory->getTaxRateId();
+        }
+      }
+
+      $response = [
+        'id' => $tenant->getId(),
+        'name' => $tenant->getName(),
+        'plan_id' => $tenant->getPlanId(),
+        'tax_rate_id' => $currentTaxRateId,
+        'plan_reservation' => null,
+      ];
+
+      // 予約情報がある場合は追加
+      if ($tenant->getUsingNextPlanFrom()) {
+        $planReservation = [
+          'next_plan_id' => $tenant->getNextPlanId(),
+          'using_next_plan_from' => $tenant->getUsingNextPlanFrom(),
+          'next_plan_tax_rate_id' => $tenant->getNextPlanTaxRateId(),
+        ];
+        $response['plan_reservation'] = $planReservation;
+      }
+
+      return response()->json($response);
+    } catch (\Throwable $e) {
+      Log::error($e->getMessage());
+      return response()->json(['error' => 'Failed to retrieve tenant detail'], Response::HTTP_INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /* ================================================================
+   * PUT /tenants/{tenant_id}/plan   ─ テナントプラン更新
+   *=============================================================== */
+  public function updateTenantPlan(Request $req, string $tenantId)
+  {
+    try {
+      if (!$tenantId) {
+        return response()->json(['error' => 'tenant_id is required'], Response::HTTP_BAD_REQUEST);
+      }
+
+      $userInfo = $req->userinfo ?? [];
+      if (!$this->hasBillingAccess($userInfo, $tenantId)) {
+        return response()->json(['error' => 'Insufficient permissions'], Response::HTTP_FORBIDDEN);
+      }
+
+      $nextPlanId = $req->input('next_plan_id');
+      $taxRateId = $req->input('tax_rate_id');
+      $usingNextPlanFrom = $req->input('using_next_plan_from');
+
+      // テナントプランを更新
+      $updateParam = new \stdClass();
+      
+      // next_plan_idを設定（空文字列も許可：解約用）
+      // - 解約時: 空文字列 ""
+      // - 予約取り消し時: null（リクエストボディが空の場合）
+      // - 通常のプラン変更時: プランID
+      $updateParam->next_plan_id = $nextPlanId;
+
+      // 税率IDが指定されている場合のみ設定
+      if ($taxRateId && $taxRateId !== '') {
+        $updateParam->next_plan_tax_rate_id = $taxRateId;
+      }
+
+      // using_next_plan_fromが指定されている場合のみ設定
+      if ($usingNextPlanFrom && $usingNextPlanFrom > 0) {
+        $updateParam->using_next_plan_from = $usingNextPlanFrom;
+      }
+
+      $this->auth->updateTenantPlan($tenantId, $updateParam);
+
+      return response()->json(['message' => 'Tenant plan updated successfully']);
+    } catch (\Throwable $e) {
+      Log::error($e->getMessage());
+      return response()->json(['error' => 'Failed to update tenant plan'], Response::HTTP_INTERNAL_SERVER_ERROR);
+    }
+  }
 }
