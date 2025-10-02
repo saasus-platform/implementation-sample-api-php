@@ -49,4 +49,10 @@ Route::middleware(\AntiPatternInc\Saasus\Laravel\Middleware\Auth::class)->group(
         Route::post('/metering/{tenantId}/{unit}/{ts}', [BillingController::class, 'updateCountOfSpecifiedTimestamp']);
         Route::post('/metering/{tenantId}/{unit}', [BillingController::class, 'updateCountOfNow']);
     });
+
+    /* --- Plan Management --- */
+    Route::get('/pricing_plans', [BillingController::class, 'getPricingPlans']);
+    Route::get('/tax_rates', [BillingController::class, 'getTaxRates']);
+    Route::get('/tenants/{tenant_id}/plan', [BillingController::class, 'getTenantPlanInfo']);
+    Route::put('/tenants/{tenant_id}/plan', [BillingController::class, 'updateTenantPlan']);
 });
