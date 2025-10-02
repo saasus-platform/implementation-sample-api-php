@@ -607,8 +607,8 @@ class BillingController extends Controller
   public function getPricingPlans(Request $req)
   {
     try {
-      $plans = $this->pricing->getPricingPlans();
-      return response()->json($plans->getPricingPlans());
+      $pricingPlansResponse = $this->pricing->getPricingPlans();
+      return response()->json($pricingPlansResponse->getPricingPlans());
     } catch (\Throwable $e) {
       Log::error($e->getMessage());
       return response()->json(['detail' => 'Internal server error'], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -621,8 +621,8 @@ class BillingController extends Controller
   public function getTaxRates(Request $req)
   {
     try {
-      $taxRates = $this->pricing->getTaxRates();
-      return response()->json($taxRates->getTaxRates());
+      $taxRatesResponse = $this->pricing->getTaxRates();
+      return response()->json($taxRatesResponse->getTaxRates());
     } catch (\Throwable $e) {
       Log::error($e->getMessage());
       return response()->json(['detail' => 'Internal server error'], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -713,12 +713,12 @@ class BillingController extends Controller
       $updateParam->next_plan_id = $nextPlanId;
 
       // 税率IDが指定されている場合のみ設定
-      if ($taxRateId && $taxRateId !== '') {
+      if (!empty($taxRateId)) {
         $updateParam->next_plan_tax_rate_id = $taxRateId;
       }
 
       // using_next_plan_fromが指定されている場合のみ設定
-      if ($usingNextPlanFrom && $usingNextPlanFrom > 0) {
+      if ($usingNextPlanFrom !== null && $usingNextPlanFrom > 0) {
         $updateParam->using_next_plan_from = $usingNextPlanFrom;
       }
 
