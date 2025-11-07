@@ -34,14 +34,15 @@ class IndexController extends Controller
 
         try {
             $authClient = $this->client->getAuthClient();
-            $response = $authClient->getAuthCredentials([
-                '',
-                'refreshTokenAuth',
-                $refreshToken
-            ]);
-
-            return response()->json($response->getBody());
+            $res = $authClient->getAuthCredentials([
+                'auth-flow' => 'refreshTokenAuth',
+                'refresh-token' => $refreshToken
+            ], $authClient::FETCH_RESPONSE);
+            
+            $body = json_decode($res->getBody(), true);
+            return response()->json($body, Response::HTTP_OK);
         } catch (\Exception $e) {
+            Log::error($e->getMessage());
             return response('Error occurred', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
