@@ -4,7 +4,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IndexController;
 use App\Http\Controllers\BillingController;
-use AntiPatternInc\Saasus\Laravel\Controllers\CallbackApiController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -16,8 +15,8 @@ use AntiPatternInc\Saasus\Laravel\Controllers\CallbackApiController;
 |
 */
 
-// 一時コードからIDトークンなどの認証情報を取得するコントローラを登録
-Route::get('/credentials', [CallbackApiController::class, 'index']);
+// 一時コードからIDトークンなどの認証情報を取得
+Route::get('/credentials', [IndexController::class, 'credentials']);
 Route::get('/refresh', [IndexController::class, 'refresh']);
 
 // SaaSus SDK標準のAuth Middlewareを利用する
