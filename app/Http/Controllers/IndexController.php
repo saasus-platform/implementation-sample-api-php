@@ -26,9 +26,9 @@ class IndexController extends Controller
 
     public function credentials(Request $request)
     {
-        if (empty($request->code)) {
-            return response()->json('code is not provided by query parameter', Response::HTTP_BAD_REQUEST);
-        }
+        $request->validate([
+            'code' => 'required|string'
+        ]);
 
         try {
             $authClient = $this->client->getAuthClient();
@@ -50,7 +50,7 @@ class IndexController extends Controller
         // リフレッシュトークンを取得
         $refreshToken = $request->cookie('SaaSusRefreshToken');
         if (!is_string($refreshToken)) {
-            return response('Refresh token not found', Response::HTTP_BAD_REQUEST);
+            return response()->json(['detail' => 'Refresh token not found'], Response::HTTP_BAD_REQUEST);
         }
 
         try {
@@ -64,7 +64,7 @@ class IndexController extends Controller
             return response()->json($body, Response::HTTP_OK);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
-            return response('Error occurred', Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json(['detail' => 'Error occurred'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
