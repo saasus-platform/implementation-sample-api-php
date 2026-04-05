@@ -10,6 +10,7 @@ use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantInvitationParamEnvsItem;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateSecretCodeParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\UpdateSoftwareTokenParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\MfaPreference;
+use AntiPatternInc\Saasus\Api\Client as SaasusClient;
 use App\Models\DeleteUserLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -19,9 +20,9 @@ class IndexController extends Controller
 {
     private $client;
 
-    public function __construct()
+    public function __construct(SaasusClient $client)
     {
-        $this->client = new \AntiPatternInc\Saasus\Api\Client();
+        $this->client = $client;
     }
 
     public function refresh(Request $request)

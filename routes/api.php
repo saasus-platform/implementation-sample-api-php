@@ -20,8 +20,8 @@ use AntiPatternInc\Saasus\Laravel\Controllers\CallbackApiController;
 Route::get('/credentials', [CallbackApiController::class, 'index']);
 Route::get('/refresh', [IndexController::class, 'refresh']);
 
-// SaaSus SDK標準のAuth Middlewareを利用する
-Route::middleware(\AntiPatternInc\Saasus\Laravel\Middleware\Auth::class)->group(function () {
+// キャッシュ付きAuth Middlewareを利用する（SaaSus SDK標準のAuth Middlewareをベースに改良）
+Route::middleware(\App\Http\Middleware\SaasusAuth::class)->group(function () {
     Route::get('/userinfo', [IndexController::class, 'userinfo']);
     Route::get('/users', [IndexController::class, 'users']);
     Route::get('/tenant_attributes', [IndexController::class, 'tenantAttributes']);

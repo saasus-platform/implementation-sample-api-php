@@ -18,9 +18,8 @@ class BillingController extends Controller
   private AuthClient    $auth;
   private PricingClient $pricing;
 
-  public function __construct()
+  public function __construct(SaasusClient $client)
   {
-    $client        = new SaasusClient();
     $this->auth    = $client->getAuthClient();
     $this->pricing = $client->getPricingClient();
   }
