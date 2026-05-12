@@ -30,3 +30,7 @@ docker compose up -d --build
 docker exec -it implementation-sample-api-php-app-1 bash
 composer install
 ```
+
+## Production Note
+
+When deploying to production, ensure that OPcache is enabled in your PHP configuration for optimal performance.
