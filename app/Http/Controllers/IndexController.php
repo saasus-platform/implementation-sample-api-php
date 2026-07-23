@@ -578,7 +578,10 @@ class IndexController extends Controller
         try {
             $authClient = $this->client->getAuthClient();
             $mfaPref = $authClient->getUserMfaPreference($userInfo['id']);
-            return response()->json(['enabled' => $mfaPref->getEnabled()]);
+            return response()->json([
+                'enabled' => $mfaPref->getEnabled(),
+                'method' => $mfaPref->getMethod(),
+            ]);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
             return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -646,7 +649,7 @@ class IndexController extends Controller
         }
     }
 
-    // MFA有効化エンドポイント
+    // MFA有効化エンドポイント（認証アプリ）
     public function mfaEnable(Request $request)
     {
         $userInfo = $request->userinfo;
@@ -662,6 +665,28 @@ class IndexController extends Controller
             $authClient->updateUserMfaPreference($userInfo['id'], $requestBody);
 
             return response()->json(['message' => 'MFA has been enabled']);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // MFAメール認証有効化エンドポイント
+    public function mfaEmailEnable(Request $request)
+    {
+        $userInfo = $request->userinfo;
+        if (!$userInfo) {
+            return response()->json(['detail' => 'No user'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $authClient = $this->client->getAuthClient();
+            $requestBody = new \stdClass();
+            $requestBody->enabled = true;
+            $requestBody->method = 'email';
+            $authClient->updateUserMfaPreference($userInfo['id'], $requestBody);
+
+            return response()->json(['message' => 'Email MFA has been enabled']);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
             return response()->json(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
