@@ -29,6 +29,7 @@ SAASUS_AUTH_MODE="api"
 docker compose up -d --build
 docker exec -it implementation-sample-api-php-app-1 bash
 composer install
+php artisan key:generate
 ```
 
 ## Production Note
