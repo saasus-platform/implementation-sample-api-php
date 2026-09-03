@@ -26,9 +26,22 @@ SAASUS_AUTH_MODE="api"
 ```
 
 ```
-docker compose up -d --build
+# Build the image
+docker compose build
+
+# Install dependencies and generate the application key
+# (use `run --rm` so these work before the app container can start)
+docker compose run --rm app composer install
+docker compose run --rm app php artisan key:generate
+
+# Start the containers
+docker compose up -d
+```
+
+Once the containers are running, you can enter the app container with:
+
+```
 docker exec -it implementation-sample-api-php-app-1 bash
-composer install
 ```
 
 ## Production Note
