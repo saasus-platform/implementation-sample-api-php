@@ -24,25 +24,47 @@ class IndexController extends Controller
         $this->client = new \AntiPatternInc\Saasus\Api\Client();
     }
 
+    public function credentials(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string'
+        ]);
+
+        try {
+            $authClient = $this->client->getAuthClient();
+            $res = $authClient->getAuthCredentials([
+                'code' => $request->code,
+                'auth-flow' => 'tempCodeAuth',
+            ], $authClient::FETCH_RESPONSE);
+            
+            $body = json_decode($res->getBody(), true);
+            return response()->json($body, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['detail' => 'Error occurred'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function refresh(Request $request)
     {
         // リフレッシュトークンを取得
         $refreshToken = $request->cookie('SaaSusRefreshToken');
         if (!is_string($refreshToken)) {
-            return response('Refresh token not found', Response::HTTP_BAD_REQUEST);
+            return response()->json(['detail' => 'Refresh token not found'], Response::HTTP_BAD_REQUEST);
         }
 
         try {
             $authClient = $this->client->getAuthClient();
-            $response = $authClient->getAuthCredentials([
-                '',
-                'refreshTokenAuth',
-                $refreshToken
-            ]);
-
-            return response()->json($response->getBody());
+            $res = $authClient->getAuthCredentials([
+                'auth-flow' => 'refreshTokenAuth',
+                'refresh-token' => $refreshToken
+            ], $authClient::FETCH_RESPONSE);
+            
+            $body = json_decode($res->getBody(), true);
+            return response()->json($body, Response::HTTP_OK);
         } catch (\Exception $e) {
-            return response('Error occurred', Response::HTTP_INTERNAL_SERVER_ERROR);
+            Log::error($e->getMessage());
+            return response()->json(['detail' => 'Error occurred'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
