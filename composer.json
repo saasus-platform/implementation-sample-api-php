@@ -11,7 +11,7 @@
         "laravel/framework": "^9.19",
         "laravel/sanctum": "^2.14.1",
         "laravel/tinker": "^2.7",
-        "saasus-platform/saasus-sdk-php": "dev-main",
+        "saasus-platform/saasus-sdk-php": "dev-feature/pkce-hosted-login",
         "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {

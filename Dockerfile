@@ -1,5 +1,10 @@
 # PHPイメージを使用
-FROM php:8.0
+# ※ この変更は PKCE 動作確認用の暫定対応であり、main への取り込みは想定していない。
+#    php:8.0 は Debian bullseye(EOL) により apt-get が 404 となりビルドできないため、
+#    動作確認を通す目的で php:8.1(bookworm) に変更している。
+#    本アプリ・SaaSus SDK いずれも php >=8.0.2 を要求しており 8.1 で動作する。
+#    本来は別途 Dockerfile の恒久対応を検討すること。
+FROM php:8.1
 
 RUN apt-get update && apt-get install -y \
     libzip-dev zip unzip git \

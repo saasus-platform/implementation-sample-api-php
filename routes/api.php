@@ -4,7 +4,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IndexController;
 use App\Http\Controllers\BillingController;
-use AntiPatternInc\Saasus\Laravel\Controllers\CallbackApiController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -16,8 +15,10 @@ use AntiPatternInc\Saasus\Laravel\Controllers\CallbackApiController;
 |
 */
 
-// 一時コードからIDトークンなどの認証情報を取得するコントローラを登録
-Route::get('/credentials', [CallbackApiController::class, 'index']);
+// PKCE（ホスト型ログイン画面）：一時コード + code_verifier を
+// IDトークンなどの認証情報へ交換するコントローラを登録
+// （フロントで code_verifier を保持し、code とともに POST する）
+Route::post('/credentials', [IndexController::class, 'getCredentials']);
 Route::get('/refresh', [IndexController::class, 'refresh']);
 
 // SaaSus SDK標準のAuth Middlewareを利用する

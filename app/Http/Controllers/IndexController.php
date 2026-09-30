@@ -10,10 +10,12 @@ use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateTenantInvitationParamEnvsItem;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\CreateSecretCodeParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\UpdateSoftwareTokenParam;
 use AntiPatternInc\Saasus\Sdk\Auth\Model\MfaPreference;
+use AntiPatternInc\Saasus\Sdk\Auth\Model\ExchangeAuthCredentialsParam;
 use App\Models\DeleteUserLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
+use Http\Client\Exception\HttpException;
 
 class IndexController extends Controller
 {
@@ -22,6 +24,79 @@ class IndexController extends Controller
     public function __construct()
     {
         $this->client = new \AntiPatternInc\Saasus\Api\Client();
+    }
+
+    /**
+     * PKCE（ホスト型ログイン画面）用の認証情報取得。
+     *
+     * フロントエンドで生成・保持した code_verifier と、ホスト型ログイン画面から
+     * コールバックで返却された一時コード（code）を受け取り、
+     * POST /credentials/exchange（SDK: exchangeAuthCredentials）で
+     * IDトークン・アクセストークン・リフレッシュトークンへ交換する。
+     *
+     * ※ 従来の GET /credentials 方式（SDK標準の CallbackApiController＝TempCodeAuthApiController
+     *    を継承、getAuthCredentials を利用）は code_challenge なしの一時コード用。
+     *    PKCEでは challenge 付き一時コードのため exchange が必須となる。
+     */
+    public function getCredentials(Request $request)
+    {
+        $code = $request->input('code');
+        $codeVerifier = $request->input('code_verifier');
+
+        if (empty($code) || empty($codeVerifier)) {
+            return response()->json(
+                ['message' => 'invalid authentication request'],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        try {
+            $credentials = $this->exchangeAuthCredentials($code, $codeVerifier);
+        } catch (\Exception $e) {
+            if ($e instanceof HttpException) {
+                $statusCode = $e->getResponse()->getStatusCode();
+                $decoded = json_decode($e->getResponse()->getBody(), true);
+                $type = $decoded['type'] ?? '';
+                $message = $decoded['message'] ?? '';
+                Log::info('Type: ' . $type . ', Message: ' . $message);
+
+                // 401（PKCE検証失敗など）はそのまま返却し、フロントでエラー表示する
+                if ($statusCode === Response::HTTP_UNAUTHORIZED) {
+                    return response()->json(['type' => $type, 'message' => $message], Response::HTTP_UNAUTHORIZED);
+                }
+                if ($statusCode === Response::HTTP_NOT_FOUND) {
+                    return response()->json(['type' => $type, 'message' => $message], Response::HTTP_NOT_FOUND);
+                }
+                return response()->json(['type' => $type, 'message' => $message], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+            Log::info('Uncaught error: ' . $e);
+            return response()->json('Uncaught error', Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        // 取得した認証情報（id_token / access_token / refresh_token）をそのまま返却する。
+        // リフレッシュトークンの保存はフロントエンドが行う（Cookie: SaaSusRefreshToken）。
+        // /refresh（refresh メソッド）も SaaSusRefreshToken を参照するため、
+        // ここでサーバ側 Cookie はセットしない。
+        return response()->json($credentials, Response::HTTP_OK);
+    }
+
+    /**
+     * 一時コードと code_verifier を PKCE で検証し、認証情報へ交換する。
+     *
+     * @return array 認証情報（id_token / access_token / refresh_token など）
+     */
+    private function exchangeAuthCredentials(string $code, string $codeVerifier): array
+    {
+        $authApi = $this->client->getAuthClient();
+
+        $param = new ExchangeAuthCredentialsParam();
+        $param->setAuthFlow('tempCodeAuth');
+        $param->setCode($code);
+        $param->setCodeVerifier($codeVerifier);
+
+        $res = $authApi->exchangeAuthCredentials($param, $authApi::FETCH_RESPONSE);
+
+        return json_decode($res->getBody(), true);
     }
 
     public function refresh(Request $request)
