@@ -7,22 +7,18 @@ use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 /* ── SaaSus SDK ───────────────────────────────────────────── */
 use AntiPatternInc\Saasus\Api\Client  as SaasusClient;
-use AntiPatternInc\Saasus\Sdk\Auth\Client  as AuthClient;
-use AntiPatternInc\Saasus\Sdk\Pricing\Client  as PricingClient;
 use AntiPatternInc\Saasus\Sdk\Pricing\Model\UpdateMeteringUnitTimestampCountParam;
 use AntiPatternInc\Saasus\Sdk\Pricing\Model\UpdateMeteringUnitTimestampCountNowParam;
 use AntiPatternInc\Saasus\Sdk\Pricing\Model\PricingPlan;
 
 class BillingController extends Controller
 {
-  private AuthClient    $auth;
-  private PricingClient $pricing;
-
-  public function __construct()
+  private function createClient(Request $req): SaasusClient
   {
-    $client        = new SaasusClient();
-    $this->auth    = $client->getAuthClient();
-    $this->pricing = $client->getPricingClient();
+    $referer = $req->headers->get('referer', '');
+    $xSaasusReferer = $req->headers->get('x-saasus-referer', '');
+    $xSaasusTraceId = $req->headers->get('x-saasus-trace-id', '');
+    return new SaasusClient($referer, $xSaasusReferer, $xSaasusTraceId);
   }
 
 
@@ -55,13 +51,13 @@ class BillingController extends Controller
       }
 
       /* プラン情報取得 */
-      $plan = $this->pricing->getPricingPlan($planId);
+      $plan = $this->createClient($req)->getPricingClient()->getPricingPlan($planId);
       if (!$plan) {
         return response()->json(['detail' => 'Pricing plan not found for the given plan_id.'], Response::HTTP_NOT_FOUND);
       }
 
       /* 該当プラン履歴の tax_rate_id を取得 */
-      $tenant = $this->auth->getTenant($tenantId);
+      $tenant = $this->createClient($req)->getAuthClient()->getTenant($tenantId);
       if (!$tenant) {
         return response()->json(['detail' => 'Tenant not found for the given tenant_id.'], Response::HTTP_NOT_FOUND);
       }
@@ -84,7 +80,7 @@ class BillingController extends Controller
       // 該当税率情報
       $matchedTax = null;
       if ($matchedHistory && $matchedHistory['tax_id']) {
-        $allTaxRates = $this->pricing->getTaxRates();
+        $allTaxRates = $this->createClient($req)->getPricingClient()->getTaxRates();
         foreach ($allTaxRates->getTaxRates() as $taxRate) {
           if ($taxRate['id'] === $matchedHistory['tax_id']) {
             $matchedTax = $taxRate;
@@ -144,7 +140,7 @@ class BillingController extends Controller
       // =========================
       // 1) テナント情報取得
       // =========================
-      $tenant = $this->auth->getTenant($tenantId);
+      $tenant = $this->createClient($req)->getAuthClient()->getTenant($tenantId);
       $tz     = new \DateTimeZone('Asia/Tokyo');
 
       // ==============================================================
@@ -184,7 +180,7 @@ class BillingController extends Controller
         }
 
         /* プラン情報取得 */
-        $plan = $this->pricing->getPricingPlan($planId);
+        $plan = $this->createClient($req)->getPricingClient()->getPricingPlan($planId);
         if (!$plan) {
           return response()->json(['detail' => 'Pricing plan not found for the given plan_id.'], Response::HTTP_NOT_FOUND);
         }
@@ -295,7 +291,7 @@ class BillingController extends Controller
         ->setMethod($method)
         ->setCount($count);
 
-      $this->pricing->updateMeteringUnitTimestampCount(
+      $this->createClient($req)->getPricingClient()->updateMeteringUnitTimestampCount(
         $tenantId,
         $unit,
         $ts,
@@ -331,7 +327,7 @@ class BillingController extends Controller
         ->setMethod($method)
         ->setCount($count);
 
-      $this->pricing->updateMeteringUnitTimestampCountNow(
+      $this->createClient($req)->getPricingClient()->updateMeteringUnitTimestampCountNow(
         $tenantId,
         $unit,
         $param
@@ -448,7 +444,7 @@ class BillingController extends Controller
             $count = $usageCache[$unitName];
           } else {
             // メータリングユニットの使用量を取得
-            $resp = $this->pricing
+            $resp = $this->createClient($req)->getPricingClient()
               ->getMeteringUnitDateCountByTenantIdAndUnitNameAndDatePeriod(
                 $tenantId,
                 $unitName,
@@ -607,7 +603,7 @@ class BillingController extends Controller
   public function getPricingPlans(Request $req)
   {
     try {
-      $pricingPlansResponse = $this->pricing->getPricingPlans();
+      $pricingPlansResponse = $this->createClient($req)->getPricingClient()->getPricingPlans();
       return response()->json($pricingPlansResponse->getPricingPlans());
     } catch (\Throwable $e) {
       Log::error($e->getMessage());
@@ -621,7 +617,7 @@ class BillingController extends Controller
   public function getTaxRates(Request $req)
   {
     try {
-      $taxRatesResponse = $this->pricing->getTaxRates();
+      $taxRatesResponse = $this->createClient($req)->getPricingClient()->getTaxRates();
       return response()->json($taxRatesResponse->getTaxRates());
     } catch (\Throwable $e) {
       Log::error($e->getMessage());
@@ -644,7 +640,7 @@ class BillingController extends Controller
         return response()->json(['error' => 'Insufficient permissions'], Response::HTTP_FORBIDDEN);
       }
 
-      $tenant = $this->auth->getTenant($tenantId);
+      $tenant = $this->createClient($req)->getAuthClient()->getTenant($tenantId);
       if (!$tenant) {
         return response()->json(['error' => 'Tenant not found'], Response::HTTP_NOT_FOUND);
       }
@@ -722,7 +718,7 @@ class BillingController extends Controller
         $updateParam->using_next_plan_from = $usingNextPlanFrom;
       }
 
-      $this->auth->updateTenantPlan($tenantId, $updateParam);
+      $this->createClient($req)->getAuthClient()->updateTenantPlan($tenantId, $updateParam);
 
       return response()->json(['message' => 'Tenant plan updated successfully']);
     } catch (\Throwable $e) {

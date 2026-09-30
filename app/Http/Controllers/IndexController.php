@@ -17,11 +17,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class IndexController extends Controller
 {
-    private $client;
-
-    public function __construct()
+    private function createClient(Request $request): \AntiPatternInc\Saasus\Api\Client
     {
-        $this->client = new \AntiPatternInc\Saasus\Api\Client();
+        $referer = $request->headers->get('referer', '');
+        $xSaasusReferer = $request->headers->get('x-saasus-referer', '');
+        $xSaasusTraceId = $request->headers->get('x-saasus-trace-id', '');
+        return new \AntiPatternInc\Saasus\Api\Client($referer, $xSaasusReferer, $xSaasusTraceId);
     }
 
     public function refresh(Request $request)
@@ -33,7 +34,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $response = $authClient->getAuthCredentials([
                 '',
                 'refreshTokenAuth',
@@ -67,7 +68,7 @@ class IndexController extends Controller
             return response()->json(['detail' => 'Invalid tenant ID'], Response::HTTP_BAD_REQUEST);
         }
 
-        $authClient = $this->client->getAuthClient();
+        $authClient = $this->createClient($request)->getAuthClient();
         $response = $authClient->getTenantUsers($tenantId);
         Log::info(json_encode($response));
         $users = [];
@@ -104,7 +105,7 @@ class IndexController extends Controller
         }
     
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $tenantAttributes = $authClient->getTenantAttributes();
             $tenantInfo = $authClient->getTenant($tenantId);
     
@@ -125,10 +126,10 @@ class IndexController extends Controller
         }
     }
 
-    public function userAttributes()
+    public function userAttributes(Request $request)
     {
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $res = $authClient->getUserAttributes();
             $attributes = array_map(function ($attribute) {
                 return [
@@ -174,7 +175,7 @@ class IndexController extends Controller
 
         try {
             // ユーザー属性情報を取得
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $userAttributesResponse = $authClient->getUserAttributes();
             $userAttributes = $userAttributesResponse->getUserAttributes();
             foreach ($userAttributes as $attribute) {
@@ -248,7 +249,7 @@ class IndexController extends Controller
 
         try {
             // SaaSusからユーザー情報を取得
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $deleteUser = $authClient->getTenantUser($tenantId, $userId);
 
             // テナントからユーザー情報を削除
@@ -326,7 +327,7 @@ class IndexController extends Controller
         }
 
         try {
-            $pricingClient = $this->client->getPricingClient();
+            $pricingClient = $this->createClient($request)->getPricingClient();
 
             $plan = $pricingClient->getPricingPlan($planId);
 
@@ -349,7 +350,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $res = $authClient->getTenantAttributes();
             $attributes = array_map(function ($attribute) {
                 return [
@@ -385,7 +386,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
 
             // テナント属性情報の取得
             $tenantAttributesResponse = $authClient->getTenantAttributes();
@@ -489,7 +490,7 @@ class IndexController extends Controller
 
         try {
             // 認証クライアントを初期化して招待一覧を取得
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $response = $authClient->getTenantInvitations($tenantId);
 
             $invitations = [];
@@ -554,7 +555,7 @@ class IndexController extends Controller
                 ->setEnvs([$createTenantInvitationParamEnvsItem]);
 
             // テナントへの招待を作成
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $authClient->createTenantInvitation(
                 $tenantId,
                 $createTenantInvitationParam
@@ -576,7 +577,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $mfaPref = $authClient->getUserMfaPreference($userInfo['id']);
             return response()->json([
                 'enabled' => $mfaPref->getEnabled(),
@@ -602,7 +603,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $param = new CreateSecretCodeParam();
             $param->setAccessToken($accessToken);
             $secretCode = $authClient->createSecretCode($userInfo['id'], $param);
@@ -636,7 +637,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $param = new UpdateSoftwareTokenParam();
             $param->setAccessToken($accessToken);
             $param->setVerificationCode($verificationCode);
@@ -658,7 +659,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $requestBody = new \stdClass();
             $requestBody->enabled = true;
             $requestBody->method = 'softwareToken';
@@ -680,7 +681,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $requestBody = new \stdClass();
             $requestBody->enabled = true;
             $requestBody->method = 'email';
@@ -702,7 +703,7 @@ class IndexController extends Controller
         }
 
         try {
-            $authClient = $this->client->getAuthClient();
+            $authClient = $this->createClient($request)->getAuthClient();
             $requestBody = new \stdClass();
             $requestBody->enabled = false;
             $requestBody->method = 'softwareToken';
